@@ -42,7 +42,7 @@ getwd() #Retorna no Console o diretório onde o arquivo atual está localizado.
 ```{r}
 #Estabelecendo que iremos trabalhar a partir desse diretório.
 
-setwd("/Volumes/GoogleDrive-117377906867629323582/Meu Drive/Analytics Descritiva/PROJETO FINAL/ProjetoFinalAnalyticsDescritiva")
+setwd("/Volumes/GoogleDrive-117377906867629323582/Meu Drive/Analytics Descritiva/Projeto")
 ```
 
 ## Dados
