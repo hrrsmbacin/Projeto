@@ -3,7 +3,7 @@ title: "Analisando o BD de Diplomas stricto sensu da UFPE"
 author: "Habacuque Rocha"
 date: "15/01/2022`"
 output_dir: "."
-output:
+output: html_document
   prettydoc::html_pretty:
     theme: cayman
     highlight: github
