@@ -1,2 +1,2 @@
 # amora
-Projeto da disciplina de BA
+Projeto Final da disciplina de Analytics Descritiva
