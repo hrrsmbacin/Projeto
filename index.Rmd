@@ -1,0 +1,482 @@
+---
+title: "Analisando o BD de Diplomas stricto sensu da UFPE (novembro de 2020 à janeiro de 2022)"
+author: "Habacuque Rocha"
+date: "15/01/2022"
+output_dir: "."
+
+    
+output: rmdformats::material
+    #theme: readthedown
+    #highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Instalando o tidyverse e carregando pacotes 
+```{r}
+#install.packages("tidyverse") ou, se já estiver instalado,
+require(tidyverse)
+require(rmdformats)
+```
+
+```{r}
+# Vendo o diretório do arquivo atual
+getwd()
+```
+
+```{r}
+#Estabelecendo que iremos trabalhar a partir desse diretório.
+setwd("/Volumes/GoogleDrive-117377906867629323582/Meu Drive/Analytics Descritiva/Projeto")
+```
+
+# Dados
+
+## Fazendo a leitura da fonte de dados. 
+```{r}
+dados <- read_csv("BD_ExpedicaoDiploma.csv")
+```
+
+```{r}
+#Vendo os títulos das colunas.
+#View(dados)
+names(dados)
+```
+
+## Limpeza dos Dados
+
+- Excluindo colunas desnecessárias
+```{r}
+colunasParaExcluir <- c("...50","prazo para add ao BD","prazo para liberação","prazo para impressão","prazo para envio ao gabinete","prazo para envio à DRD","prazo para retorno da DRD","prazo para informar ao PPG","prazo de retirada do PPG","contador","ano do processo","ano da adição no BD", "ano da impressão","...63","...64","...65")
+
+dados2 <- dados[,!(names(dados)%in% colunasParaExcluir)]
+```
+
+- Excluindo linhas desnecessárias (sem número de processo e/ou que os diplomas não foram expedidos), se houver
+```{r}
+dados2 = subset(dados2, PROCESSO != "NA")
+dados2 = subset(dados2, DATA_REGISTRO != "NA")
+```
+
+- corrigindo campos de categoria com erros ortográficos
+
+```{r}
+dados2$TITULACAO[dados2$TITULACAO == "MESTRE "] <-"MESTRE"
+dados2$TITULACAO[dados2$TITULACAO == "MESTRA "] <-"MESTRA"
+dados2$TITULACAO[dados2$TITULACAO == "DOUTOR "] <-"DOUTOR"
+dados2$TITULACAO[dados2$TITULACAO == "DOUTORA "] <-"DOUTORA"
+dados2$CENTRO[dados2$CENTRO == "CIn"] <-"CIN"
+dados2$TIPO_DOCUMENTO[dados2$TIPO_DOCUMENTO == "de cédula de identidade nº "] <-"de cédula de identidade nº"
+dados2$TIPO_DOCUMENTO[dados2$TIPO_DOCUMENTO == "do passaporte nº "] <-"do passaporte nº"
+
+dados2$SEMESTRE_DEFESA[dados2$SEMESTRE_DEFESA == "1ª "] <-"1º"
+dados2$SEMESTRE_DEFESA[dados2$SEMESTRE_DEFESA == "2ª "] <-"2º"
+dados2$SEMESTRE_DEFESA[dados2$SEMESTRE_DEFESA == "1°"] <-"1º"
+dados2$SEMESTRE_DEFESA[dados2$SEMESTRE_DEFESA == "2°"] <-"2º"
+dados2$SEMESTRE_DEFESA[dados2$SEMESTRE_DEFESA == "1º"] <-"1º"
+dados2$SEMESTRE_DEFESA[dados2$SEMESTRE_DEFESA == "2º"] <-"2º"
+dados2$SEMESTRE_DEFESA[dados2$SEMESTRE_DEFESA == "          1º"] <-"1º"
+dados2$SEMESTRE_DEFESA[dados2$SEMESTRE_DEFESA == "          2º"] <-"2º"
+```
+
+- incluindo novas colunas pra facilitar a vida do cidadão
+```{r}
+dados2 <- mutate (dados2, SEXO = NA)
+dados2 <- mutate (dados2, NIVEL = NA)
+dados2 <- mutate (dados2, DOCUMENTO = NA)
+```
+
+- melhorando alguns dados
+```{r}
+#ajeitando a coluna COLACAO
+dados2$COLACAO[dados2$DIA_COLACAO == "-"] <-"sem colação"
+dados2$COLACAO[is.na(dados2$DIA_COLACAO)] <- "sem colação"
+
+dados2$COLACAO[dados2$COLACAO == "C"] <-"com colação"
+```
+
+```{r}
+#ajeitando a coluna URGENCIA
+dados2$URGENCIA[dados2$URGENCIA == "U"] <-"urgente"
+dados2$URGENCIA[dados2$URGENCIA == "UU"] <-"urgentíssimo"
+dados2$URGENCIA[is.na(dados2$URGENCIA)] <- "não urgente"
+```
+
+```{r}
+#preenchendo a coluna SEXO
+dados2$SEXO[dados2$TITULACAO == "MESTRE"] <-"masculino"
+dados2$SEXO[dados2$TITULACAO == "DOUTOR"] <-"masculino"
+dados2$SEXO[dados2$TITULACAO == "MESTRA"] <-"feminino"
+dados2$SEXO[dados2$TITULACAO == "DOUTORA"] <-"feminino"
+```
+
+```{r}
+#preenchendo a coluna NIVEL
+dados2$NIVEL[dados2$TITULACAO == "MESTRE"] <-"mestrado"
+dados2$NIVEL[dados2$TITULACAO == "MESTRA"] <-"mestrado"
+dados2$NIVEL[dados2$TITULACAO == "DOUTORA"] <-"doutorado"
+dados2$NIVEL[dados2$TITULACAO == "DOUTOR"] <-"doutorado"
+```
+
+```{r}
+#preenchendo a coluna DOCUMENTO
+dados2$DOCUMENTO[dados2$TIPO_DOCUMENTO == "de cédula de identidade nº"] <-"identidade"
+dados2$DOCUMENTO[dados2$TIPO_DOCUMENTO == "do passaporte nº"] <-"passaporte"
+dados2$DOCUMENTO[dados2$TIPO_DOCUMENTO == "do RNE nº"] <-"RNE"
+```
+
+```{r}
+#ajeitando a coluna COTUTELA
+dados2$COTUTELA[dados2$COTUTELA == "S"] <-"regime de cotutela"
+dados2$COTUTELA[dados2$COTUTELA == "C"] <-"regime de cotutela"
+dados2$COTUTELA[is.na(dados2$COTUTELA)] <- "regime normal"
+```
+
+# Salvando o BD em novo arquivo CSV depois dos ajustes e exclusão das colunas e linhas desnecessárias
+```{r}
+write.csv(dados2, "BD_ExpedicaoDiplomasAjustado.csv", row.names = FALSE)
+```
+
+# Abrindo nova fonte de dados bonitinha
+```{r}
+BD_Diplomas <- read_csv("BD_ExpedicaoDiplomasAjustado.csv")
+```
+
+```{r}
+#Verificando os tipos das variáveis
+str(BD_Diplomas)
+```
+
+## Realizando mais algumas mudanças na fonte de dados
+
+Algumas mudanças iniciais nos dados ainda são interessantes.
+
+- As colunas “DATA_ABERTURA_PROCESSO”,”DATA_ADICAO_BD”, ”DATA_LIBERACAO_IMPRESSAO”,”DATA_IMPRESSAO”,”DATA_ENVIO_GABINETE”, ”DATA_RETORNO_GABINETE”,”DATA_REGISTRO”,”DATA_INFORMADO_PPG”, ”DATA_RETIRADA_PPG” devem ser do tipo "Date"
+
+- Várias colunas categóricas podem ser passadas para "factor".
+
+```{r}
+library(lubridate)
+
+colunasTipoData = c("DATA_ABERTURA_PROCESSO","DATA_ADICAO_BD","DATA_LIBERACAO_IMPRESSAO","DATA_IMPRESSAO","DATA_ENVIO_GABINETE","DATA_RETORNO_GABINETE","DATA_REGISTRO","DATA_INFORMADO_PPG","DATA_RETIRADA_PPG")
+
+# Passando as colunas para o formato Date
+
+BD_Diplomas$DATA_ABERTURA_PROCESSO <- as.Date(parse_date_time(BD_Diplomas$DATA_ABERTURA_PROCESSO,"dmy"))
+
+BD_Diplomas$DATA_ADICAO_BD <- as.Date(parse_date_time(BD_Diplomas$DATA_ADICAO_BD,"dmy"))
+
+BD_Diplomas$DATA_LIBERACAO_IMPRESSAO <- as.Date(parse_date_time(BD_Diplomas$DATA_LIBERACAO_IMPRESSAO,"dmy"))
+
+BD_Diplomas$DATA_IMPRESSAO <- as.Date(parse_date_time(BD_Diplomas$DATA_IMPRESSAO,"dmy"))
+
+BD_Diplomas$DATA_ENVIO_GABINETE <- as.Date(parse_date_time(BD_Diplomas$DATA_ENVIO_GABINETE,"dmy"))
+
+BD_Diplomas$DATA_RETORNO_GABINETE <- as.Date(parse_date_time(BD_Diplomas$DATA_RETORNO_GABINETE,"dmy"))
+
+BD_Diplomas$DATA_REGISTRO <- as.Date(parse_date_time(BD_Diplomas$DATA_REGISTRO,"dmy"))
+
+BD_Diplomas$DATA_INFORMADO_PPG <- as.Date(parse_date_time(BD_Diplomas$DATA_INFORMADO_PPG,"dmy"))
+
+BD_Diplomas$DATA_RETIRADA_PPG <- as.Date(parse_date_time(BD_Diplomas$DATA_RETIRADA_PPG,"dmy"))
+
+summary(BD_Diplomas$DATA_ABERTURA_PROCESSO)
+```
+```{r}
+colunasCategoricas <- c("URGENCIA","COLACAO","COTUTELA","CENTRO","PROGRAMA_NIVEL","NOME_CURSO","SEMESTRE_DEFESA","ANO_DEFESA","TITULACAO","TIPO_DOCUMENTO","ORGAO_EXPEDIDOR_E_ESTADO_EMISSAO","NATURAL","MES_NASCIMENTO","NACIONALIDADE","MES_DIPLOMA","SEXO","NIVEL","DOCUMENTO")
+
+BD_Diplomas[colunasCategoricas] <- lapply(BD_Diplomas[colunasCategoricas], as_factor)
+
+#sapply(BD_Diplomas, class)
+```
+
+# Gerando alguns gráficos sobre o BD
+
+## Consultando o número de diplomas de Mestrado e Doutorado expedidos.
+
+```{r}
+graficoNivel = BD_Diplomas %>%
+  group_by(NIVEL) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoNivel %>%
+  ggplot(aes(x = NIVEL, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 5)
+```
+
+## Consultando o número de diplomas pelo sexo da pessoa.
+
+```{r}
+graficoSexo = BD_Diplomas %>%
+  group_by(SEXO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoSexo %>%
+  ggplot(aes(x = SEXO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 5)
+```
+
+## Consultando o número de diplomas urgentes.
+
+```{r}
+graficoSexo = BD_Diplomas %>%
+  group_by(URGENCIA) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoSexo %>%
+  ggplot(aes(x = URGENCIA, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 5)
+```
+
+## Consultando o número de diplomas por PPG clusterizadas por centro.
+
+- CAA
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CAA") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 2) +
+  coord_flip()
+```
+
+- CAC
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CAC") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 2) +
+  coord_flip()
+```
+
+
+- CAV
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CAV") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 4) +
+  coord_flip()
+```
+
+
+- CB
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CB") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 2) +
+  coord_flip()
+```
+
+
+- CCEN
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CCEN") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 3) +
+  coord_flip()
+```
+
+- CCJ
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CCJ") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 5) +
+  coord_flip()
+```
+
+- CCM
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CCM") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 3) +
+  coord_flip()
+```
+
+- CCS
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CCS") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 2) +
+  coord_flip()
+```
+
+
+- CCSA
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CCSA") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 2) +
+  coord_flip()
+```
+
+- CE
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CE") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 4) +
+  coord_flip()
+```
+
+- CFCH
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CFCH") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 2) +
+  coord_flip()
+```
+
+- CIN
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CIN") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 5) +
+  coord_flip()
+```
+
+- CTG
+
+```{r}
+graficoCAA = BD_Diplomas %>%
+  filter(CENTRO == "CTG") %>%
+  group_by(NOME_CURSO) %>%
+  summarise(
+    quantidade = n()
+  )
+
+graficoCAA %>%
+  ggplot(aes(x = NOME_CURSO, y = quantidade, label = quantidade)) +
+  geom_bar(stat = "identity") +
+  geom_label(size = 2) +
+  coord_flip()
+```
+
+
+# TABELA RESUMO DOS DIPLOMAS POR PGG
+
+```{r}
+library(DT)
+
+graficoPPG = BD_Diplomas %>%
+  group_by(PROGRAMA_NIVEL) %>%
+  summarise(
+    quantidade = n()
+  )
+
+datatable(graficoPPG)
+
+```
